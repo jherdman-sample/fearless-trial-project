@@ -17,8 +17,19 @@ public class Controller {
     }
 
     @GetMapping(value = "/items")
+    @ResponseBody
     public DataItem[] getItems() {
         return currentItems.toArray(new DataItem[0]);
+    }
+
+    @GetMapping(value = "/items/{id}")
+    public ResponseEntity<DataItem> getItem(@PathVariable int id) {
+        DataItem result = findItemById(id);
+        if(result == null) {
+            return ResponseEntity.notFound().build();
+        } else {
+            return ResponseEntity.ok(result);
+        }
     }
 
     @PostMapping("/items")
@@ -34,11 +45,44 @@ public class Controller {
         return ResponseEntity.ok().build();
     }
 
-    @DeleteMapping("/items")
-    public ResponseEntity<String> deleteItems() {
-        currentItems.clear();
+    @PutMapping("/items")
+    public ResponseEntity<String> addItem(@RequestBody DataItem newItem) {
+        if(!hasExistingIds(new DataItem[]{newItem})) {
+            return ResponseEntity.badRequest().body("Provided item id does not exist.");
+        } else {
+            findItemById(newItem.getId()).setName(newItem.getName());
+        }
 
         return ResponseEntity.ok().build();
+    }
+
+    @DeleteMapping("/items")
+    @ResponseBody
+    public void deleteItems() {
+        currentItems.clear();
+    }
+
+    @DeleteMapping("/items/{id}")
+    public ResponseEntity<String> deleteItem(@PathVariable int id) {
+        DataItem result = findItemById(id);
+        if(result == null) {
+            return ResponseEntity.notFound().build();
+        } else {
+            currentItems.remove(findItemById(id));
+            return ResponseEntity.ok().build();
+        }
+    }
+
+    DataItem findItemById(int id) {
+        List<DataItem> results = currentItems.stream()
+                .filter(item -> item.getId() == id)
+                .collect(Collectors.toList());
+
+        if(results.size() > 1) {
+            throw new RuntimeException("Multiple data items with an 'id' of " + id);
+        }
+
+        return results.size() == 0 ? null : results.get(0);
     }
 
     boolean hasDuplicateIds(DataItem[] items) {
@@ -57,6 +101,6 @@ public class Controller {
 
         return Arrays.stream(items)
                 .map(DataItem::getId)
-                .anyMatch(i -> Collections.frequency(currentIdSet, i) > 1);
+                .anyMatch(currentIdSet::contains);
     }
 }

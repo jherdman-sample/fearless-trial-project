@@ -2,7 +2,7 @@ package sample.jherdman.fearlesstrialproject.model;
 
 public class DataItem {
     private final int id;
-    private final String name;
+    private String name;
 
     public DataItem(int id, String name) {
         this.id = id;
@@ -15,5 +15,9 @@ public class DataItem {
 
     public String getName() {
         return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
     }
 }
