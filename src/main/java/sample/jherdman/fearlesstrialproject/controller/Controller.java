@@ -24,15 +24,16 @@ public class Controller {
 
     @GetMapping(value = "/items/{id}")
     public ResponseEntity<DataItem> getItem(@PathVariable int id) {
-        DataItem result = findItemById(id);
-        if(result == null) {
-            return ResponseEntity.notFound().build();
+        Optional<DataItem> result = findItemById(id);
+
+        if(result.isPresent()) {
+            return ResponseEntity.ok(result.get());
         } else {
-            return ResponseEntity.ok(result);
+            return ResponseEntity.notFound().build();
         }
     }
 
-    @PostMapping("/items")
+    @PostMapping(value = "/items")
     public ResponseEntity<String> addItems(@RequestBody DataItem[] newItems) {
         if(hasDuplicateIds(newItems)) {
             return ResponseEntity.badRequest().body("Provided items cannot have duplicate 'id' fields");
@@ -46,34 +47,42 @@ public class Controller {
     }
 
     @PutMapping("/items")
-    public ResponseEntity<String> addItem(@RequestBody DataItem newItem) {
-        if(!hasExistingIds(new DataItem[]{newItem})) {
-            return ResponseEntity.badRequest().body("Provided item id does not exist.");
+    public ResponseEntity<String> updateItem(@RequestBody DataItem newItem) {
+        Optional<DataItem> result = findItemById(newItem.getId());
+
+        if(result.isPresent()) {
+            result.get().setName(newItem.getName());
+            return ResponseEntity.ok().build();
         } else {
-            findItemById(newItem.getId()).setName(newItem.getName());
+            return ResponseEntity.notFound().build();
         }
-
-        return ResponseEntity.ok().build();
-    }
-
-    @DeleteMapping("/items")
-    @ResponseBody
-    public void deleteItems() {
-        currentItems.clear();
     }
 
     @DeleteMapping("/items/{id}")
     public ResponseEntity<String> deleteItem(@PathVariable int id) {
-        DataItem result = findItemById(id);
-        if(result == null) {
-            return ResponseEntity.notFound().build();
-        } else {
-            currentItems.remove(findItemById(id));
+        Optional<DataItem> result = findItemById(id);
+        if(result.isPresent()) {
+            currentItems.remove(result.get());
             return ResponseEntity.ok().build();
+        } else {
+            return ResponseEntity.notFound().build();
         }
     }
 
-    DataItem findItemById(int id) {
+    @DeleteMapping("/items")
+    public void deleteItems() {
+        currentItems.clear();
+    }
+
+    //
+    // Helper functions
+    //
+
+    /*
+     * Lookup function to find an item by id.
+     * Will throw runtime exception if there are
+     */
+    Optional<DataItem> findItemById(int id) {
         List<DataItem> results = currentItems.stream()
                 .filter(item -> item.getId() == id)
                 .collect(Collectors.toList());
@@ -82,10 +91,16 @@ public class Controller {
             throw new RuntimeException("Multiple data items with an 'id' of " + id);
         }
 
-        return results.size() == 0 ? null : results.get(0);
+        return results.size() == 0 ? Optional.empty() : Optional.of(results.get(0));
     }
 
+    /*
+     * Checks that the provided array of items has any duplicate id fields
+     */
     boolean hasDuplicateIds(DataItem[] items) {
+        if(items.length <= 1)
+            return false;
+
         List<Integer> itemIdCollection = Arrays.stream(items)
                 .map(DataItem::getId)
                 .collect(Collectors.toList());
@@ -94,6 +109,9 @@ public class Controller {
                 .anyMatch(i -> Collections.frequency(itemIdCollection, i) > 1);
     }
 
+    /*
+     * Checks that the provided array of items do not have an id that is already present in the stored items.
+     */
     boolean hasExistingIds(DataItem[] items) {
         Set<Integer> currentIdSet = currentItems.stream()
                 .map(DataItem::getId)
